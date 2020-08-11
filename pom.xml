@@ -6,7 +6,7 @@
 
     <groupId>org.ohdsi</groupId>
     <artifactId>SkeletonCohortCharacterization</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.1.0</version>
     <build>
         <directory>inst/java</directory>
         <plugins>
@@ -53,7 +53,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <src.dir>java</src.dir>
         <test.dir>test</test.dir>
-        <arachne.version>1.15.0-SNAPSHOT</arachne.version>
+        <arachne.version>1.16.0-SNAPSHOT</arachne.version>
     </properties>
     <distributionManagement>
         <repository>
@@ -66,11 +66,6 @@
         </snapshotRepository>
     </distributionManagement>
     <repositories>
-        <repository>
-            <id>central</id>
-            <name>Central Repository</name>
-            <url>http://repo.maven.apache.org/maven2/ </url>
-        </repository>
         <repository>
             <id>ohdsi</id>
             <name>repo.ohdsi.org</name>
@@ -94,7 +89,7 @@
         <dependency>
             <groupId>org.ohdsi.sql</groupId>
             <artifactId>SqlRender</artifactId>
-            <version>1.6.1-SNAPSHOT</version>
+            <version>1.6.5</version>
         </dependency>
         <dependency>
             <groupId>org.json</groupId>
@@ -114,7 +109,7 @@
         <dependency>
             <groupId>org.ohdsi</groupId>
             <artifactId>circe</artifactId>
-            <version>1.8.0-SNAPSHOT</version>
+            <version>1.8.6</version>
         </dependency>
         <dependency>
             <groupId>org.ohdsi</groupId>
