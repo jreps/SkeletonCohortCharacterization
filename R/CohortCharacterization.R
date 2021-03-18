@@ -10,51 +10,116 @@
 #' @param connectionDetails An object of type \code{connectionDetails} as created using the
 #'                             \code{\link[DatabaseConnector]{createConnectionDetails}} function in the
 #'                             DatabaseConnector package.
-#' @param cohortTable The name of table with cohorts
 #' @param sessionId session identifier using to build temporary tables
-#' @param cdmSchema the name of schema containing data in CDM format
+#' @param cdmDatabaseSchema the name of schema containing data in CDM format
+#' @param cohortDatabaseSchema  The name of the schema containing the cohort table
+#' @param cohortTable The name of table with cohorts
 #' @param resultsSchema the name of schema where results would be placed
 #' @param vocabularySchema the name of schema with vocabularies
 #' @param tempSchema the name of database temp schema
 #' @param analysisId analysis identifier
+#' @param outputFolder The location to save the results to
+#' @param customCovariates A list of lists with objects: function (a string) and settings and list of inputs to the function
+#' @param createCohort Whether to run the code to create the cohort
+#' @param saveSql Whether to save the sql used into the outputFolder
 #' 
 #' @export
 runAnalysis <- function(connectionDetails,
+                  sessionId, # how to define this?
+                  cdmDatabaseSchema,
+                  cohortDatabaseSchema,
                   cohortTable = "cohort",
-                  sessionId,
-                  cdmSchema,
                   resultsSchema,
                   vocabularySchema,
                   tempSchema = resultsSchema,
-                  analysisId,
-                  outputFolder = "SkeletonCohortCharacterization"
+                  analysisId, # this should move the json
+                  outputFolder = "SkeletonCohortCharacterization",
+                  customCovariates = NULL,
+                  createCohorts = T,
+                  saveSql = T
 ) {
   if (!file.exists(outputFolder))
     dir.create(outputFolder, recursive = TRUE)
   ParallelLogger::addDefaultFileLogger(file.path(outputFolder, "log.txt"))
-
-  filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
-  cohortCharacterization <- read_file(filename)
-
-  ParallelLogger::logInfo("Building Cohort Characterization queries to run")
-  sql <- buildQuery(cohortCharacterization, cohortTable, sessionId, cdmSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
-  dbms <- connectionDetails$dbms
-  ParallelLogger::logInfo(paste("Translate SQL for", dbms))
-  translatedSql <- SqlRender::translate(sql, dbms, tempSchema)
-
-  writeLines(sql, paste0("/tmp/sql-cc-", dbms, "-", analysisId, ".sql"))
-
-  ParallelLogger::logInfo("Running analysis")
+  
   con <- DatabaseConnector::connect(connectionDetails)
-  sql <- SqlRender::render("DELETE FROM @results_database_schema.cc_results WHERE cc_generation_id = @analysis_id", 
-                           results_database_schema = resultsSchema, analysis_id = analysisId)
-  deleteSql <- SqlRender::translate(sql, dbms, tempSchema)
-  DatabaseConnector::executeSql(con, deleteSql)
-  DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
-  DatabaseConnector::disconnect(con)
-
-  ParallelLogger::logInfo("Collecting results")
-  saveResults(connectionDetails, cohortCharacterization, analysisId, resultsSchema, outputFolder)
+  
+  
+  if(createCohorts){
+    tblNames <- DatabaseConnector::getTableNames(connection = con, databaseSchema = cohortDatabaseSchema)
+    if(length(tblNames)>0){
+      if(!tolower(cohortTable)%in%tolower(tblNames)){
+        ParallelLogger::logInfo("Creating cohortTable")
+        createCohortTable(connectionDetails = connectionDetails,
+                          cohortDatabaseSchema = cohortDatabaseSchema, 
+                          cohortTable = cohortTable)
+      }
+    }
+    
+    ParallelLogger::logInfo("Generating study cohorts")
+    generateCohortsFromJson(connectionDetails = connectionDetails, 
+                            cdmDatabaseSchema = cdmDatabaseSchema, 
+                            vocabularySchema = vocabularySchema, 
+                            cohortDatabaseSchema = cohortDatabaseSchema, 
+                            cohortTable = cohortTable,
+                            tempSchema = tempSchema) 
+    
+  }
+  
+  # TODO
+  # add code to check results schema exists and offer to create if not
+  # TODO
+  
+  # create results table is not exists
+  tblNames <- DatabaseConnector::getTableNames(connection = con, databaseSchema = resultsSchema)
+  if(length(tblNames)>0){
+    if(!'cc_results'%in%tolower(tblNames)){
+      ParallelLogger::logInfo(paste0('Creating cc_results table in ', resultsSchema))
+      sql <- SqlRender::loadRenderTranslateSql(sqlFilename = "CreateResultTable.sql",
+                                               packageName = "SkeletonCohortCharacterization",
+                                               dbms = attr(con, "dbms"),
+                                               oracleTempSchema = tempSchema,
+                                               results_database_schema = resultsSchema)
+      DatabaseConnector::executeSql(connection, sql, progressBar = FALSE, reportOverallTime = FALSE)
+    }
+  }
+  
+  filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
+  if(file.exists(ilename)){
+    cohortCharacterization <- read_file(filename)
+    
+    ParallelLogger::logInfo("Building Cohort Characterization queries to run")
+    sql <- buildQuery(cohortCharacterization, paste0(cohortDatabaseSchema,'.',cohortTable), sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
+    dbms <- connectionDetails$dbms
+    ParallelLogger::logInfo(paste("Translate SQL for", dbms))
+    translatedSql <- SqlRender::translate(sql = sql, 
+                                          targetDialect = dbms, 
+                                          oracleTempSchema = tempSchema)
+    
+    if(saveSql){
+      sqlFile <- paste0(outputFolder,"/tmp/sql-cc-", dbms, "-", analysisId, ".sql")
+      ParallelLogger::logInfo("Saving sql to: ", sqlFile )
+      writeLines(sql, sqlFile)
+    }
+    
+    ParallelLogger::logInfo("Running analysis")
+    sql <- SqlRender::render("DELETE FROM @results_database_schema.cc_results WHERE cc_generation_id = @analysis_id", 
+                             results_database_schema = resultsSchema,  
+                             analysis_id = analysisId)
+    deleteSql <- SqlRender::translate(sql, dbms, tempSchema)
+    DatabaseConnector::executeSql(con, deleteSql)
+    DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
+    DatabaseConnector::disconnect(con)
+    
+    if(!is.null(customCovariates)){
+      # add custom covariate bit here...
+    }
+    
+    ParallelLogger::logInfo("Collecting results")
+    saveResults(connectionDetails, cohortCharacterization, analysisId, resultsSchema, outputFolder)
+  } else{
+    ParallelLogger::logInfo("Missing settings json")
+  }
 
   invisible(NULL)
 }

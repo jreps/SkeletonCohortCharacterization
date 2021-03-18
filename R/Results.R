@@ -95,7 +95,8 @@ buildReports <- function(analysis, cohorts, stratas, results, outputFolder) {
 #'                      treshold level. Default value is 0.01
 #'
 #' @export
-saveResults <- function(connectionDetails, cohortCharacterization, analysisId, resultsSchema, outputFolder, tresholdLevel = 0.01) {
+saveResults <- function(connectionDetails, cohortCharacterization, analysisId, 
+                        resultsSchema, outputFolder, tresholdLevel = 0.01) {
 
   library(jsonlite)
   if (!file.exists(outputFolder))
@@ -105,11 +106,11 @@ saveResults <- function(connectionDetails, cohortCharacterization, analysisId, r
 
   ParallelLogger::logInfo("Gathering results from source")
   sql <- SqlRender::loadRenderTranslateSql(sqlFilename = "queryResults.sql",
-    packageName = "SkeletonCohortCharacterization",
-    dbms = attr(con, "dbms"),
-    results_database_schema = resultsSchema,
-    cohort_characterization_generation_id = analysisId,
-    threshold_level = tresholdLevel)
+                                           packageName = "SkeletonCohortCharacterization",
+                                           dbms = attr(con, "dbms"),
+                                           results_database_schema = resultsSchema,
+                                           cohort_characterization_generation_id = analysisId,
+                                           threshold_level = tresholdLevel)
 
   results <- DatabaseConnector::querySql(con, sql)
 

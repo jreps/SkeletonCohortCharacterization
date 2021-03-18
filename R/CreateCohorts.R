@@ -7,27 +7,43 @@
 
 #' Builds SQL to create cohort table
 #'
-#' @param sqlPath Path to SQL template
-#' @param resultsSchema The name of schema where cohort table will be placed
-#' @param targetTable The name of cohort table
+#' @param connectionDetails The connection details to the OMOP CDM
+#' @param cohortDatabaseSchema The name of schema where cohort table will be placed
+#' @param cohortTable The name of cohort table
 #'
 #'
-getCreateCohortTableSql <- function(sqlPath, resultSchema, targetTable) {
+createCohortTable <- function(connectionDetails,
+                              cohortDatabaseSchema, 
+                              cohortTable) {
+  
+  sqlPath <- system.file("sql", "sql_server", "CreateCohortTable.sql", package = 'SkeletonCohortCharacterization')
+  
   createCohortTableSql <- SqlRender::readSql(sqlPath)
-  createCohortTableSql <- SqlRender::render(createCohortTableSql, cohort_database_schema = resultSchema, cohort_table = targetTable)
-  return(createCohortTableSql)
+  createCohortTableSql <- SqlRender::render(createCohortTableSql, 
+                                            cohort_database_schema = cohortDatabaseSchema, 
+                                            cohort_table = cohortTable)
+  
+  con <- DatabaseConnector::connect(connectionDetails)
+  DatabaseConnector::executeSql(con, createCohortTableSql)
+  DatabaseConnector::disconnect(con)
+  
+  return(invisible(NULL))
 }
 
 #' Builds SQLs to construct cohorts for analysis
 #'
-#' @param studySpec Path to CC specification json
-#' @param cdmSchema The name of schema containing data in CDM format
+#' @param cdmDatabaseSchema The name of schema containing data in CDM format
 #' @param vocabularySchema The name of schema with vocabularies
-#' @param resultsSchema The name of schema where cohorts will be placed
+#' @param cohortDatabaseSchema The name of schema where cohorts will be placed
 #' @param cohortTable The name of table where cohorts will be placed
 #'
-getCohortSqls <- function(studySpec, cdmSchema, vocabularySchema, resultSchema, targetTable) {
-  sqls <- c()
+getCohortSqls <- function(cdmDatabaseSchema, 
+                          vocabularySchema, 
+                          cohortDatabaseSchema, 
+                          cohortTable) {
+  
+  studySpec <- system.file("settings", "StudySpecification.json", package = 'SkeletonCohortCharacterization')
+  
 
   cohortExpression <- new(J("org.ohdsi.circe.cohortdefinition.CohortExpression"))
   queryBuilder <- new(J("org.ohdsi.circe.cohortdefinition.CohortExpressionQueryBuilder"))
@@ -35,13 +51,14 @@ getCohortSqls <- function(studySpec, cdmSchema, vocabularySchema, resultSchema, 
   cohorts <- fromJSON(studySpec)$cohorts
 
   dbOptions <- list(
-  cdmSchema = cdmSchema,
-  targetTable = paste(resultSchema, ".", targetTable, sep = ""),
-  resultSchema = resultSchema,
+  cdmSchema = cdmDatabaseSchema,
+  targetTable = paste(cohortDatabaseSchema, ".", cohortTable, sep = ""),
+  resultSchema = cohortDatabaseSchema,
   vocabularySchema = vocabularySchema,
   generateStats = FALSE
   )
 
+  sqls <- c()
   for (c in cohorts) {
     options <- list(dbOptions)
 
@@ -59,66 +76,43 @@ getCohortSqls <- function(studySpec, cdmSchema, vocabularySchema, resultSchema, 
   return(sqls)
 }
 
-#' Executes given SQLs to construct cohorts
-#'
-#' @param cohortTableSql SQL to create cohort table
-#' @param cohortSqls Cohort SQLs
-#' @param connectionDetails An object of type \code{connectionDetails} as created using the
-#'                             \code{\link[DatabaseConnector]{createConnectionDetails}} function in the
-#'                             DatabaseConnector package.
-#'
-constructCohorts <- function(cohortTableSql, cohortSqls, connectionDetails, tempSchema) {
-
-  runSql <- function(sql) {
-    con <- DatabaseConnector::connect(connectionDetails)
-    DatabaseConnector::executeSql(con, sql, runAsBatch = TRUE)
-    DatabaseConnector::disconnect(con)
-  }
-
-  cohortTableSql <- SqlRender::translate(cohortTableSql, connectionDetails$dbms, tempSchema)
-  runSql(cohortTableSql)
-
-  for (sql in cohortSqls) {
-    renderedSql <- SqlRender::render(sql)
-    translatedSql <- SqlRender::translate(renderedSql, connectionDetails$dbms, tempSchema)
-
-    # TODO:
-    # writeLines(sql, paste0("/tmp/sql-cohort-", dbms, "-", analysisId, ".sql"))
-
-    ParallelLogger::logInfo("Building cohort")
-    runSql(translatedSql)
-  }
-}
 
 #' Constructs cohorts used in CC analysis
 #'
-#' @param cohortTableSql SQL to create cohort table
-#' @param cohortSqls Cohort SQLs
 #' @param connectionDetails An object of type \code{connectionDetails} as created using the
 #'                             \code{\link[DatabaseConnector]{createConnectionDetails}} function in the
 #'                             DatabaseConnector package.
+#' @param cdmDatabaseSchema The schema containing the cdm data  
+#' @param vocabularySchema  The schema containing the vocab
+#' @param cohortDatabaseSchema The schema that will contain the cohortTable
+#' @param cohortTable  The name of the cohortTable that gets created
+#' @param tempSchema  The temp schema if needed           
 #' @export
-createCohorts <- function(pckg, connectionDetails, cdmSchema, vocabularySchema, resultSchema, tempSchema = resultSchema) {
-  tmpPostfix <- sample(1:10^8, 1)
-  cohortTable <- paste("cohort_", tmpPostfix, sep = "")
+generateCohortsFromJson <- function(connectionDetails, 
+                          cdmDatabaseSchema, 
+                          vocabularySchema, 
+                          cohortDatabaseSchema, cohortTable,
+                          tempSchema = cohortDatabaseSchema) {
 
-  cohortTableSql <- getCreateCohortTableSql(
-  sqlPath = system.file("sql", "sql_server", "CreateCohortTable.sql", package = pckg),
-  resultSchema = resultSchema,
-  targetTable = cohortTable
-  )
+  cohortSqls <- getCohortSqls(cdmDatabaseSchema = cdmDatabaseSchema,
+                              vocabularySchema = vocabularySchema,
+                              cohortDatabaseSchema = cohortDatabaseSchema,
+                              cohortTable = cohortTable
+                              )
+  
+  i <- 1
+  for (sql in cohortSqls) {
+    renderedSql <- SqlRender::render(sql)
+    translatedSql <- SqlRender::translate(renderedSql, connectionDetails$dbms, tempSchema)
+    
+    ParallelLogger::logInfo(paste0("Building cohort ",i))
+    con <- DatabaseConnector::connect(connectionDetails)
+    DatabaseConnector::executeSql(con, sql, runAsBatch = TRUE)
+    DatabaseConnector::disconnect(con)
+    i <- 1+1
+  }
 
-  cohortSqls <- getCohortSqls(
-  studySpec = system.file("settings", "StudySpecification.json", package = pckg),
-  cdmSchema = cdmSchema,
-  vocabularySchema = vocabularySchema,
-  resultSchema = resultSchema,
-  targetTable = cohortTable
-  )
-
-  constructCohorts(cohortTableSql, cohortSqls, connectionDetails, tempSchema)
-
-  return(cohortTable)
+  return(paste0(cohortDatabaseSchema, '.', cohortTable))
 }
 
 #' Drops cohort table
@@ -126,12 +120,16 @@ createCohorts <- function(pckg, connectionDetails, cdmSchema, vocabularySchema, 
 #' @param connectionDetails An object of type \code{connectionDetails} as created using the
 #'                             \code{\link[DatabaseConnector]{createConnectionDetails}} function in the
 #'                             DatabaseConnector package.
-#' @param resultsSchema The name of schema where cohort table will be placed
-#' @param targetTable The name of cohort table
+#' @param cohortDatabaseSchema The name of schema where cohort table will be placed
+#' @param cohortTable The name of cohort table
+#' @param tempSchema The temp schema if needed
 #' @export
-cleanupCohortTable <- function(connectionDetails, resultSchema, cohortTable, tempSchema = resultSchema) {
+cleanupCohortTable <- function(connectionDetails, 
+                               cohortDatabaseSchema, 
+                               cohortTable, 
+                               tempSchema = cohortDatabaseSchema) {
   sql <- "IF OBJECT_ID('@cohort_database_schema.@cohort_table', 'U') IS NOT NULL DROP TABLE @cohort_database_schema.@cohort_table;"
-  sql <- SqlRender::render(sql, cohort_database_schema = resultSchema, cohort_table = cohortTable)
+  sql <- SqlRender::render(sql, cohort_database_schema = cohortDatabaseSchema, cohort_table = cohortTable)
   sql <- SqlRender::translate(sql, connectionDetails$dbms, tempSchema)
   con <- DatabaseConnector::connect(connectionDetails)
   DatabaseConnector::executeSql(con, sql, runAsBatch = TRUE)
