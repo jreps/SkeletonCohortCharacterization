@@ -4,16 +4,23 @@
 \alias{cleanupCohortTable}
 \title{Drops cohort table}
 \usage{
-cleanupCohortTable(connectionDetails, resultSchema, cohortTable)
+cleanupCohortTable(
+  connectionDetails,
+  cohortDatabaseSchema,
+  cohortTable,
+  tempSchema = cohortDatabaseSchema
+)
 }
 \arguments{
 \item{connectionDetails}{An object of type \code{connectionDetails} as created using the
 \code{\link[DatabaseConnector]{createConnectionDetails}} function in the
 DatabaseConnector package.}
 
-\item{resultsSchema}{The name of schema where cohort table will be placed}
+\item{cohortDatabaseSchema}{The name of schema where cohort table will be placed}
 
-\item{targetTable}{The name of cohort table}
+\item{cohortTable}{The name of cohort table}
+
+\item{tempSchema}{The temp schema if needed}
 }
 \description{
 Drops cohort table

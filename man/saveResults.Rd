@@ -4,8 +4,14 @@
 \alias{saveResults}
 \title{Save results of analyses from database to CSV files.}
 \usage{
-saveResults(connectionDetails, cohortCharacterization, analysisId,
-  resultsSchema, outputFolder, tresholdLevel = 0.01)
+saveResults(
+  connectionDetails,
+  cohortCharacterization,
+  analysisId,
+  resultsSchema,
+  outputFolder,
+  tresholdLevel = 0.01
+)
 }
 \arguments{
 \item{connectionDetails}{An object of type \code{connectionDetails} as created using the
@@ -20,7 +26,7 @@ DatabaseConnector package.}
 
 \item{outputFolder}{folder name where results would be saved}
 
-\item{tresholdLevel}{treshold level is used for prevalence analyses to reduce meaningless records having percentage lower than 
+\item{tresholdLevel}{treshold level is used for prevalence analyses to reduce meaningless records having percentage lower than
 treshold level. Default value is 0.01}
 }
 \description{

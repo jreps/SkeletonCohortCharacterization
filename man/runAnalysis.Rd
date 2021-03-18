@@ -4,20 +4,34 @@
 \alias{runAnalysis}
 \title{Builds query, run analyses and save results to the result folder.}
 \usage{
-runAnalysis(connectionDetails, cohortTable = "cohort", sessionId,
-  cdmSchema, resultsSchema, vocabularySchema, tempSchema = resultsSchema,
-  analysisId, outputFolder = "SkeletonCohortCharacterization")
+runAnalysis(
+  connectionDetails,
+  sessionId,
+  cdmDatabaseSchema,
+  cohortDatabaseSchema,
+  cohortTable = "cohort",
+  resultsSchema,
+  vocabularySchema,
+  tempSchema = resultsSchema,
+  analysisId,
+  outputFolder = "SkeletonCohortCharacterization",
+  customCovariates = NULL,
+  createCohorts = T,
+  saveSql = T
+)
 }
 \arguments{
 \item{connectionDetails}{An object of type \code{connectionDetails} as created using the
 \code{\link[DatabaseConnector]{createConnectionDetails}} function in the
 DatabaseConnector package.}
 
-\item{cohortTable}{The name of table with cohorts}
-
 \item{sessionId}{session identifier using to build temporary tables}
 
-\item{cdmSchema}{the name of schema containing data in CDM format}
+\item{cdmDatabaseSchema}{the name of schema containing data in CDM format}
+
+\item{cohortDatabaseSchema}{The name of the schema containing the cohort table}
+
+\item{cohortTable}{The name of table with cohorts}
 
 \item{resultsSchema}{the name of schema where results would be placed}
 
@@ -26,6 +40,14 @@ DatabaseConnector package.}
 \item{tempSchema}{the name of database temp schema}
 
 \item{analysisId}{analysis identifier}
+
+\item{outputFolder}{The location to save the results to}
+
+\item{customCovariates}{A list of lists with objects: function (a string) and settings and list of inputs to the function}
+
+\item{saveSql}{Whether to save the sql used into the outputFolder}
+
+\item{createCohort}{Whether to run the code to create the cohort}
 }
 \description{
 Builds query, run analyses and save results to the result folder.

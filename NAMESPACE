@@ -2,6 +2,6 @@
 
 export(buildQuery)
 export(cleanupCohortTable)
-export(createCohorts)
+export(generateCohortsFromJson)
 export(runAnalysis)
 export(saveResults)

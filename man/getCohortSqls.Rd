@@ -4,17 +4,19 @@
 \alias{getCohortSqls}
 \title{Builds SQLs to construct cohorts for analysis}
 \usage{
-getCohortSqls(studySpec, cdmSchema, vocabularySchema, resultSchema,
-  targetTable)
+getCohortSqls(
+  cdmDatabaseSchema,
+  vocabularySchema,
+  cohortDatabaseSchema,
+  cohortTable
+)
 }
 \arguments{
-\item{studySpec}{Path to CC specification json}
-
-\item{cdmSchema}{The name of schema containing data in CDM format}
+\item{cdmDatabaseSchema}{The name of schema containing data in CDM format}
 
 \item{vocabularySchema}{The name of schema with vocabularies}
 
-\item{resultsSchema}{The name of schema where cohorts will be placed}
+\item{cohortDatabaseSchema}{The name of schema where cohorts will be placed}
 
 \item{cohortTable}{The name of table where cohorts will be placed}
 }

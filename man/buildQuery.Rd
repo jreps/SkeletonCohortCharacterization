@@ -4,9 +4,16 @@
 \alias{buildQuery}
 \title{Builds SQL code to run analyses according given Cohort Characterization design}
 \usage{
-buildQuery(cohortCharacterization, cohortTable = "cohort", sessionId,
-  cdmSchema, resultsSchema, vocabularySchema = cdmSchema,
-  tempSchema = resultsSchema, analysisId)
+buildQuery(
+  cohortCharacterization,
+  cohortTable = "cohort",
+  sessionId,
+  cdmSchema,
+  resultsSchema,
+  vocabularySchema = cdmSchema,
+  tempSchema = resultsSchema,
+  analysisId
+)
 }
 \arguments{
 \item{cohortCharacterization}{A string object containing valid JSON that represents CC design}
