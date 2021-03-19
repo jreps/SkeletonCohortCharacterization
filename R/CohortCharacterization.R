@@ -52,7 +52,8 @@ runAnalysis <- function(connectionDetails,
         ParallelLogger::logInfo("Creating cohortTable")
         createCohortTable(connectionDetails = connectionDetails,
                           cohortDatabaseSchema = cohortDatabaseSchema, 
-                          cohortTable = cohortTable)
+                          cohortTable = cohortTable,
+                          oracleTempSchema = tempSchema)
       }
     }
     
@@ -80,16 +81,18 @@ runAnalysis <- function(connectionDetails,
                                                dbms = attr(con, "dbms"),
                                                oracleTempSchema = tempSchema,
                                                results_database_schema = resultsSchema)
-      DatabaseConnector::executeSql(connection, sql, progressBar = FALSE, reportOverallTime = FALSE)
+      DatabaseConnector::executeSql(con, sql, progressBar = FALSE, reportOverallTime = FALSE)
     }
   }
   
   filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
-  if(file.exists(ilename)){
+  if(file.exists(filename)){
     cohortCharacterization <- read_file(filename)
     
     ParallelLogger::logInfo("Building Cohort Characterization queries to run")
-    sql <- buildQuery(cohortCharacterization, paste0(cohortDatabaseSchema,'.',cohortTable), sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
+    # this fixes the cohortTable in the resultSchema...
+    #sql <- buildQuery(cohortCharacterization, paste0(cohortDatabaseSchema,'.',cohortTable), sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
+    sql <- buildQuery(cohortCharacterization, cohortTable, sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
     dbms <- connectionDetails$dbms
     ParallelLogger::logInfo(paste("Translate SQL for", dbms))
     translatedSql <- SqlRender::translate(sql = sql, 
@@ -97,9 +100,12 @@ runAnalysis <- function(connectionDetails,
                                           oracleTempSchema = tempSchema)
     
     if(saveSql){
+      if(!dir.exists(paste0(outputFolder,"/tmp"))){
+        dir.create(paste0(outputFolder,"/tmp"), recursive = T)
+      }
       sqlFile <- paste0(outputFolder,"/tmp/sql-cc-", dbms, "-", analysisId, ".sql")
       ParallelLogger::logInfo("Saving sql to: ", sqlFile )
-      writeLines(sql, sqlFile)
+      writeLines(translatedSql, sqlFile)
     }
     
     ParallelLogger::logInfo("Running analysis")
@@ -108,6 +114,14 @@ runAnalysis <- function(connectionDetails,
                              analysis_id = analysisId)
     deleteSql <- SqlRender::translate(sql, dbms, tempSchema)
     DatabaseConnector::executeSql(con, deleteSql)
+    
+    # stddev(character varying) issue hack
+    translatedSql <- gsub('STDDEV\\(','STDDEV\\(1.0*',translatedSql)
+    translatedSql <- gsub('min\\(value_as_number','min\\(1.0*value_as_number',translatedSql)
+    translatedSql <- gsub('max\\(value_as_number','max\\(1.0*value_as_number',translatedSql)
+    translatedSql <- gsub('select value_as_number, COUNT', 
+                          'select cast\\(value_as_number as DOUBLE PRECISION\\) value_as_number, COUNT',
+                          translatedSql)
     DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
     DatabaseConnector::disconnect(con)
     

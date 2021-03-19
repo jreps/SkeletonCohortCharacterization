@@ -4,7 +4,12 @@
 \alias{createCohortTable}
 \title{Builds SQL to create cohort table}
 \usage{
-createCohortTable(connectionDetails, cohortDatabaseSchema, cohortTable)
+createCohortTable(
+  connectionDetails,
+  cohortDatabaseSchema,
+  cohortTable,
+  oracleTempSchema
+)
 }
 \arguments{
 \item{connectionDetails}{The connection details to the OMOP CDM}
@@ -12,6 +17,8 @@ createCohortTable(connectionDetails, cohortDatabaseSchema, cohortTable)
 \item{cohortDatabaseSchema}{The name of schema where cohort table will be placed}
 
 \item{cohortTable}{The name of cohort table}
+
+\item{oracleTempSchema}{The temp schema}
 }
 \description{
 Builds SQL to create cohort table

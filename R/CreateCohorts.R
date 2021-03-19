@@ -10,11 +10,13 @@
 #' @param connectionDetails The connection details to the OMOP CDM
 #' @param cohortDatabaseSchema The name of schema where cohort table will be placed
 #' @param cohortTable The name of cohort table
+#' @param oracleTempSchema The temp schema
 #'
 #'
 createCohortTable <- function(connectionDetails,
                               cohortDatabaseSchema, 
-                              cohortTable) {
+                              cohortTable,
+                              oracleTempSchema) {
   
   sqlPath <- system.file("sql", "sql_server", "CreateCohortTable.sql", package = 'SkeletonCohortCharacterization')
   
@@ -22,6 +24,10 @@ createCohortTable <- function(connectionDetails,
   createCohortTableSql <- SqlRender::render(createCohortTableSql, 
                                             cohort_database_schema = cohortDatabaseSchema, 
                                             cohort_table = cohortTable)
+  
+  createCohortTableSql <- SqlRender::translate(createCohortTableSql, 
+                                               targetDialect = connectionDetails$dbms,
+                                               oracleTempSchema = oracleTempSchema)
   
   con <- DatabaseConnector::connect(connectionDetails)
   DatabaseConnector::executeSql(con, createCohortTableSql)
@@ -103,11 +109,12 @@ generateCohortsFromJson <- function(connectionDetails,
   i <- 1
   for (sql in cohortSqls) {
     renderedSql <- SqlRender::render(sql)
+    
     translatedSql <- SqlRender::translate(renderedSql, connectionDetails$dbms, tempSchema)
     
     ParallelLogger::logInfo(paste0("Building cohort ",i))
     con <- DatabaseConnector::connect(connectionDetails)
-    DatabaseConnector::executeSql(con, sql, runAsBatch = TRUE)
+    DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
     DatabaseConnector::disconnect(con)
     i <- 1+1
   }
