@@ -17,7 +17,7 @@
 #' @param resultsSchema the name of schema where results would be placed
 #' @param vocabularySchema the name of schema with vocabularies
 #' @param tempSchema the name of database temp schema
-#' @param analysisId analysis identifier
+#' @param generationId analysis identifier
 #' @param outputFolder The location to save the results to
 #' @param customCovariates A list of lists with objects: function (a string) and settings and list of inputs to the function
 #' @param createCohort Whether to run the code to create the cohort
@@ -32,7 +32,7 @@ runAnalysis <- function(connectionDetails,
                   resultsSchema,
                   vocabularySchema,
                   tempSchema = resultsSchema,
-                  analysisId, # this should move the json
+                  generationId = NULL,
                   outputFolder = "SkeletonCohortCharacterization",
                   customCovariates = NULL,
                   createCohorts = T,
@@ -41,6 +41,16 @@ runAnalysis <- function(connectionDetails,
   if (!file.exists(outputFolder))
     dir.create(outputFolder, recursive = TRUE)
   ParallelLogger::addDefaultFileLogger(file.path(outputFolder, "log.txt"))
+  
+  if(is.null(generationId)){
+    ParallelLogger::logInfo('Extracting generationId from json')
+    filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
+    generationId <- jsonlite::fromJSON(filename)$generationId
+    ParallelLogger::logInfo(paste0('GenerationId is ', generationId))
+  } else{
+    ParallelLogger::logInfo(paste0('Using input generationId of ', generationId))
+  }
+  
   
   con <- DatabaseConnector::connect(connectionDetails)
   
@@ -90,9 +100,7 @@ runAnalysis <- function(connectionDetails,
     cohortCharacterization <- read_file(filename)
     
     ParallelLogger::logInfo("Building Cohort Characterization queries to run")
-    # this fixes the cohortTable in the resultSchema...
-    #sql <- buildQuery(cohortCharacterization, paste0(cohortDatabaseSchema,'.',cohortTable), sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
-    sql <- buildQuery(cohortCharacterization, cohortTable, sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, analysisId)
+    sql <- buildQuery(cohortCharacterization, cohortTable, sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, generationId)
     dbms <- connectionDetails$dbms
     ParallelLogger::logInfo(paste("Translate SQL for", dbms))
     translatedSql <- SqlRender::translate(sql = sql, 
@@ -103,34 +111,42 @@ runAnalysis <- function(connectionDetails,
       if(!dir.exists(paste0(outputFolder,"/tmp"))){
         dir.create(paste0(outputFolder,"/tmp"), recursive = T)
       }
-      sqlFile <- paste0(outputFolder,"/tmp/sql-cc-", dbms, "-", analysisId, ".sql")
+      sqlFile <- paste0(outputFolder,"/tmp/sql-cc-", dbms, "-", generationId, ".sql")
       ParallelLogger::logInfo("Saving sql to: ", sqlFile )
       writeLines(translatedSql, sqlFile)
     }
     
     ParallelLogger::logInfo("Running analysis")
-    sql <- SqlRender::render("DELETE FROM @results_database_schema.cc_results WHERE cc_generation_id = @analysis_id", 
+    sql <- SqlRender::render("DELETE FROM @results_database_schema.cc_results WHERE cc_generation_id = @generation_id", 
                              results_database_schema = resultsSchema,  
-                             analysis_id = analysisId)
+                             generation_id = generationId)
     deleteSql <- SqlRender::translate(sql, dbms, tempSchema)
     DatabaseConnector::executeSql(con, deleteSql)
     
-    # stddev(character varying) issue hack
-    translatedSql <- gsub('STDDEV\\(','STDDEV\\(1.0*',translatedSql)
-    translatedSql <- gsub('min\\(value_as_number','min\\(1.0*value_as_number',translatedSql)
-    translatedSql <- gsub('max\\(value_as_number','max\\(1.0*value_as_number',translatedSql)
-    translatedSql <- gsub('select value_as_number, COUNT', 
-                          'select cast\\(value_as_number as DOUBLE PRECISION\\) value_as_number, COUNT',
-                          translatedSql)
+    # null issue hack
+    translatedSql <- gsub('null as value_as_number', 'count\\(*\\) as value_as_number',translatedSql)
+    translatedSql <- gsub('P.START_DATE\\) \\) v', 'P.START_DATE\\) \\) v group by v.person_id, v.event_id',translatedSql)
     DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
     DatabaseConnector::disconnect(con)
     
     if(!is.null(customCovariates)){
       # add custom covariate bit here...
+      customCovariates <- lapply(customCovariates, 
+                                 function(x){addSettings(x, 
+                                                         connectionDetails,
+                                                         resultsSchema,
+                                                         generationId,
+                                                         cohortTable,
+                                                         cdmDatabaseSchema
+                                                         )})
+      
+      lapply(customCovariates, 
+             function(x){do.call(x$funct, x$settings)})
+      
     }
     
     ParallelLogger::logInfo("Collecting results")
-    saveResults(connectionDetails, cohortCharacterization, analysisId, resultsSchema, outputFolder)
+    saveResults(connectionDetails, cohortCharacterization, generationId, resultsSchema, outputFolder)
   } else{
     ParallelLogger::logInfo("Missing settings json")
   }

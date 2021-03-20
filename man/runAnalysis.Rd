@@ -13,7 +13,7 @@ runAnalysis(
   resultsSchema,
   vocabularySchema,
   tempSchema = resultsSchema,
-  analysisId,
+  generationId = NULL,
   outputFolder = "SkeletonCohortCharacterization",
   customCovariates = NULL,
   createCohorts = T,
@@ -39,7 +39,7 @@ DatabaseConnector package.}
 
 \item{tempSchema}{the name of database temp schema}
 
-\item{analysisId}{analysis identifier}
+\item{generationId}{analysis identifier}
 
 \item{outputFolder}{The location to save the results to}
 
