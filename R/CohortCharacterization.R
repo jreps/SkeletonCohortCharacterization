@@ -65,6 +65,12 @@ runAnalysis <- function(connectionDetails,
                           cohortTable = cohortTable,
                           oracleTempSchema = tempSchema)
       }
+    } else{
+      ParallelLogger::logInfo("Creating cohortTable")
+      createCohortTable(connectionDetails = connectionDetails,
+                        cohortDatabaseSchema = cohortDatabaseSchema, 
+                        cohortTable = cohortTable,
+                        oracleTempSchema = tempSchema)
     }
     
     ParallelLogger::logInfo("Generating study cohorts")
