@@ -18,22 +18,27 @@ timeBetweenDrugs <- function(connectionDetails,
   from 
   (select drugs.person_id, 
   drugs.DRUG_EXPOSURE_START_DATE, 
-  drugs.DRUG_EXPOSURE_END_DATE 
+  max(drugs.DRUG_EXPOSURE_END_DATE) DRUG_EXPOSURE_END_DATE 
   
   from @cohort_database_schema.@cohort_table ct inner join 
   (select * from @cdm_database_schema.drug_exposure where drug_concept_id in  
-  (select DESCENDANT_CONCEPT_ID from @cdm_database_schema.CONCEPT_ANCESTOR where ANCESTOR_CONCEPT_ID = 19117912 
-  and DESCENDANT_CONCEPT_ID not in (select DESCENDANT_CONCEPT_ID from @cdm_database_schema.CONCEPT_ANCESTOR where ANCESTOR_CONCEPT_ID = 43730114)) 
-  ) drugs 
+  (select DESCENDANT_CONCEPT_ID 
+  from @cdm_database_schema.CONCEPT_ANCESTOR 
+  where ANCESTOR_CONCEPT_ID = 19117912
+  and DESCENDANT_CONCEPT_ID not in (select DESCENDANT_CONCEPT_ID from @cdm_database_schema.CONCEPT_ANCESTOR where ANCESTOR_CONCEPT_ID = 43730114) 
+  )) drugs 
   on ct.subject_id = drugs.person_id and 
   drugs.DRUG_EXPOSURE_@end_type_DATE >= dateadd(day, @start_date, ct.cohort_start_date) and 
-  drugs.DRUG_EXPOSURE_START_DATE <= dateadd(day, @end_date, ct.cohort_start_date)) valid_drugs;"
+  drugs.DRUG_EXPOSURE_START_DATE <= dateadd(day, @end_date, ct.cohort_start_date) 
+  GROUP BY drugs.person_id, drugs.DRUG_EXPOSURE_START_DATE) valid_drugs;"
   
   sql <- SqlRender::render(sql, 
                            cohort_database_schema = resultsSchema,
                            cohort_table = cohortTable,
                            cdm_database_schema = cdmDatabaseSchema,
                            start_date = startDate,
+                           includes = paste0(includeConceptParents, collapse = ',', sep = ','),
+                           excludes = paste0(excludeConceptParents, collapse = ',', sep = ','),
                            end_date = endDate,
                            end_type = endType)
   
