@@ -25,7 +25,7 @@
 #' @param resultsSchema the name of schema where results would be placed
 #' @param vocabularySchema the name of schema with vocabularies
 #' @param tempSchema the name of database temp schema
-#' @param analysisId analysis identifier
+#' @param jobId job identifier
 #' @return SQL code in MS Sql Server dialect, if it's required to run analysis on another DBMS
 #'         you have to use \code{\link[SqlRender]{translateSql}} function in the SqlRender package.
 #' 
@@ -37,10 +37,10 @@ buildQuery <- function(cohortCharacterization,
                         resultsSchema,
                         vocabularySchema = cdmSchema,
                         tempSchema = resultsSchema,
-                        analysisId
+                        jobId
 ) {
 
-  id <- .jlong(analysisId)
+  id <- .jlong(jobId)
   queryBuilder <- new(J("org.ohdsi.cohortcharacterization.CCQueryBuilder"), cohortCharacterization, cohortTable, sessionId, cdmSchema, resultsSchema, vocabularySchema, tempSchema, id)
   sql <- queryBuilder$build()
   return(sql)

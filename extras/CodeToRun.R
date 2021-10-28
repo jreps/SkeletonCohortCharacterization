@@ -4,7 +4,7 @@ library(SkeletonCohortCharacterization)
 #=======================
 # The folder where the study intermediate and result files will be written:
 outputFolder <- "./SkeletonCohortCharacterization"
-generationId <- NULL
+jobId <- NULL
 sessionId <- '1'
 
 # Details for connecting to the server:
@@ -51,7 +51,7 @@ SkeletonCohortCharacterization::runAnalysis(connectionDetails = connectionDetail
                                             resultsSchema = resultDatabaseSchema,
                                             vocabularySchema = vocabularySchema, #?
                                             tempSchema = oracleTempSchema,
-                                            generationId = generationId,
+                                            jobId = jobId,
                                             outputFolder = outputFolder,
                                             customCovariates = customCovariates,
                                             createCohorts = createCohorts,
