@@ -4,8 +4,8 @@ library(SkeletonCohortCharacterization)
 #=======================
 # The folder where the study intermediate and result files will be written:
 outputFolder <- "./SkeletonCohortCharacterization"
-jobId <- NULL
 sessionId <- '1'
+jobId <- NULL
 
 # Details for connecting to the server:
 dbms <- "you dbms"
@@ -40,6 +40,8 @@ cohortTable <- 'SkeletonCohortCharacterizationCohort'
 saveSql <- T
 createCohorts <- T
 customCovariates <- NULL
+runCharacterization <- T
+viewShiny <- T
 
 #=======================
 
@@ -54,5 +56,7 @@ SkeletonCohortCharacterization::runAnalysis(connectionDetails = connectionDetail
                                             jobId = jobId,
                                             outputFolder = outputFolder,
                                             customCovariates = customCovariates,
-                                            createCohorts = createCohorts,
-                                            saveSql = saveSql)
+                                            createCohorts = createCohorts, 
+                                            runCharacterization = runCharacterization,
+                                            saveSql = saveSql, 
+                                            viewShiny = viewShiny)

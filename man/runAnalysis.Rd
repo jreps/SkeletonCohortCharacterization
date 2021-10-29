@@ -13,11 +13,14 @@ runAnalysis(
   resultsSchema,
   vocabularySchema,
   tempSchema = resultsSchema,
-  generationId = NULL,
+  jobId = NULL,
   outputFolder = "SkeletonCohortCharacterization",
   customCovariates = NULL,
   createCohorts = T,
-  saveSql = T
+  runCharacterization = T,
+  saveSql = T,
+  saveCvsResults = T,
+  viewShiny = T
 )
 }
 \arguments{
@@ -39,13 +42,19 @@ DatabaseConnector package.}
 
 \item{tempSchema}{the name of database temp schema}
 
-\item{generationId}{analysis identifier}
+\item{jobId}{analysis identifier}
 
 \item{outputFolder}{The location to save the results to}
 
 \item{customCovariates}{A list of lists with objects: function (a string) and settings and list of inputs to the function}
 
+\item{runCharacterization}{Whether to run the code to charcterize the cohorts}
+
 \item{saveSql}{Whether to save the sql used into the outputFolder}
+
+\item{saveCvsResults}{Whether to save the results as csv files}
+
+\item{viewShiny}{Whether to view the results in a shiny app}
 
 \item{createCohort}{Whether to run the code to create the cohort}
 }

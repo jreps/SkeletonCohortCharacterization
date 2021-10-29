@@ -12,7 +12,7 @@ buildQuery(
   resultsSchema,
   vocabularySchema = cdmSchema,
   tempSchema = resultsSchema,
-  analysisId
+  jobId
 )
 }
 \arguments{
@@ -30,7 +30,7 @@ buildQuery(
 
 \item{tempSchema}{the name of database temp schema}
 
-\item{analysisId}{analysis identifier}
+\item{jobId}{job identifier}
 }
 \value{
 SQL code in MS Sql Server dialect, if it's required to run analysis on another DBMS

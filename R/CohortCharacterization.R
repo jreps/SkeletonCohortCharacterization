@@ -21,7 +21,10 @@
 #' @param outputFolder The location to save the results to
 #' @param customCovariates A list of lists with objects: function (a string) and settings and list of inputs to the function
 #' @param createCohort Whether to run the code to create the cohort
+#' @param runCharacterization Whether to run the code to charcterize the cohorts
 #' @param saveSql Whether to save the sql used into the outputFolder
+#' @param saveCvsResults Whether to save the results as csv files
+#' @param viewShiny Whether to view the results in a shiny app
 #' 
 #' @export
 runAnalysis <- function(connectionDetails,
@@ -36,7 +39,10 @@ runAnalysis <- function(connectionDetails,
                   outputFolder = "SkeletonCohortCharacterization",
                   customCovariates = NULL,
                   createCohorts = T,
-                  saveSql = T
+                  runCharacterization =T,
+                  saveSql = T,
+                  saveCvsResults = T,
+                  viewShiny = T
 ) {
   if (!file.exists(outputFolder))
     dir.create(outputFolder, recursive = TRUE)
@@ -46,7 +52,7 @@ runAnalysis <- function(connectionDetails,
     ParallelLogger::logInfo('Extracting jobId from json')
     filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
     jobId <- jsonlite::fromJSON(filename)$generationId
-    ParallelLogger::logInfo(paste0('GenerationId is ', jobId))
+    ParallelLogger::logInfo(paste0('jobId is ', jobId))
   } else{
     ParallelLogger::logInfo(paste0('Using input jobId of ', jobId))
   }
@@ -56,108 +62,100 @@ runAnalysis <- function(connectionDetails,
   
   
   if(createCohorts){
-    tblNames <- DatabaseConnector::getTableNames(connection = con, databaseSchema = cohortDatabaseSchema)
+    
+    # new code
+    createAllCohorts(connection =  con,
+                  connectionDetails = NULL,
+                  cdmDatabaseSchema = cdmDatabaseSchema,
+                  vocabularyDatabaseSchema = cdmDatabaseSchema,
+                  cohortDatabaseSchema = cohortDatabaseSchema,
+                  cohortTable = cohortTable,
+                  oracleTempSchema = tempSchema,
+                  outputFolder = outputFolder)
+    
+  } # end cohort creation
+  
+  
+  if(runCharacterization){
+    
+    # create results table is not exists
+    tblNames <- DatabaseConnector::getTableNames(connection = con, databaseSchema = resultsSchema)
     if(length(tblNames)>0){
-      if(!tolower(cohortTable)%in%tolower(tblNames)){
-        ParallelLogger::logInfo("Creating cohortTable")
-        createCohortTable(connectionDetails = connectionDetails,
-                          cohortDatabaseSchema = cohortDatabaseSchema, 
-                          cohortTable = cohortTable,
-                          oracleTempSchema = tempSchema)
+      if(!'cc_results'%in%tolower(tblNames)){
+        ParallelLogger::logInfo(paste0('Creating cc_results table in ', resultsSchema))
+        sql <- SqlRender::loadRenderTranslateSql(sqlFilename = "CreateResultTable.sql",
+                                                 packageName = "SkeletonCohortCharacterization",
+                                                 dbms = attr(con, "dbms"),
+                                                 oracleTempSchema = tempSchema,
+                                                 results_database_schema = resultsSchema)
+        DatabaseConnector::executeSql(con, sql, progressBar = FALSE, reportOverallTime = FALSE)
       }
+    }
+    
+    filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
+    if(file.exists(filename)){
+      cohortCharacterization <- read_file(filename)
+      
+      ParallelLogger::logInfo("Building Cohort Characterization queries to run")
+      
+      tempSchema <- ifelse(is.null(tempSchema),resultsSchema,tempSchema)
+      
+      sql <- buildQuery(cohortCharacterization, paste(cohortDatabaseSchema,cohortTable, sep='.'), sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, jobId)
+      dbms <- connectionDetails$dbms
+      ParallelLogger::logInfo(paste("Translate SQL for", dbms))
+      translatedSql <- SqlRender::translate(sql = sql, 
+                                            targetDialect = dbms, 
+                                            oracleTempSchema = tempSchema)
+      
+      if(saveSql){
+        if(!dir.exists(paste0(outputFolder,"/tmp"))){
+          dir.create(paste0(outputFolder,"/tmp"), recursive = T)
+        }
+        sqlFile <- paste0(outputFolder,"/tmp/sql-cc-", dbms, "-", jobId, ".sql")
+        ParallelLogger::logInfo("Saving sql to: ", sqlFile )
+        writeLines(translatedSql, sqlFile)
+      }
+      
+      ParallelLogger::logInfo("Running analysis")
+      sql <- SqlRender::render("DELETE FROM @results_database_schema.cc_results WHERE cc_generation_id = @generation_id", 
+                               results_database_schema = resultsSchema,  
+                               generation_id = jobId)
+      deleteSql <- SqlRender::translate(sql, dbms, tempSchema)
+      DatabaseConnector::executeSql(con, deleteSql)
+      
+      DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
+      DatabaseConnector::disconnect(con)
+      
+      if(!is.null(customCovariates)){
+        # add custom covariate bit here...
+        customCovariates <- lapply(customCovariates, 
+                                   function(x){addSettings(x, 
+                                                           connectionDetails,
+                                                           resultsSchema,
+                                                           jobId,
+                                                           cohortTable,
+                                                           cdmDatabaseSchema
+                                   )})
+        
+        lapply(customCovariates, 
+               function(x){do.call(x$funct, x$settings)})
+        
+      }
+      
+      
+      if(saveCvsResults){
+        ParallelLogger::logInfo("Collecting results")
+        saveResults(connectionDetails, cohortCharacterization, jobId, resultsSchema, file.path(outputFolder,'results'))
+      }
+      
     } else{
-      ParallelLogger::logInfo("Creating cohortTable")
-      createCohortTable(connectionDetails = connectionDetails,
-                        cohortDatabaseSchema = cohortDatabaseSchema, 
-                        cohortTable = cohortTable,
-                        oracleTempSchema = tempSchema)
+      ParallelLogger::logInfo("Missing settings json")
     }
-    
-    ParallelLogger::logInfo("Generating study cohorts")
-    generateCohortsFromJson(connectionDetails = connectionDetails, 
-                            cdmDatabaseSchema = cdmDatabaseSchema, 
-                            vocabularySchema = vocabularySchema, 
-                            cohortDatabaseSchema = cohortDatabaseSchema, 
-                            cohortTable = cohortTable,
-                            tempSchema = tempSchema) 
     
   }
-  
-  # TODO
-  # add code to check results schema exists and offer to create if not
-  # TODO
-  
-  # create results table is not exists
-  tblNames <- DatabaseConnector::getTableNames(connection = con, databaseSchema = resultsSchema)
-  if(length(tblNames)>0){
-    if(!'cc_results'%in%tolower(tblNames)){
-      ParallelLogger::logInfo(paste0('Creating cc_results table in ', resultsSchema))
-      sql <- SqlRender::loadRenderTranslateSql(sqlFilename = "CreateResultTable.sql",
-                                               packageName = "SkeletonCohortCharacterization",
-                                               dbms = attr(con, "dbms"),
-                                               oracleTempSchema = tempSchema,
-                                               results_database_schema = resultsSchema)
-      DatabaseConnector::executeSql(con, sql, progressBar = FALSE, reportOverallTime = FALSE)
-    }
-  }
-  
-  filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
-  if(file.exists(filename)){
-    cohortCharacterization <- read_file(filename)
     
-    ParallelLogger::logInfo("Building Cohort Characterization queries to run")
-    
-    tempSchema <- ifelse(is.null(tempSchema),'',tempSchema)
-    
-    sql <- buildQuery(cohortCharacterization, paste(cohortDatabaseSchema,cohortTable, sep='.'), sessionId, cdmDatabaseSchema, resultsSchema, vocabularySchema, tempSchema, jobId)
-    dbms <- connectionDetails$dbms
-    ParallelLogger::logInfo(paste("Translate SQL for", dbms))
-    translatedSql <- SqlRender::translate(sql = sql, 
-                                          targetDialect = dbms, 
-                                          oracleTempSchema = tempSchema)
-    
-    if(saveSql){
-      if(!dir.exists(paste0(outputFolder,"/tmp"))){
-        dir.create(paste0(outputFolder,"/tmp"), recursive = T)
-      }
-      sqlFile <- paste0(outputFolder,"/tmp/sql-cc-", dbms, "-", jobId, ".sql")
-      ParallelLogger::logInfo("Saving sql to: ", sqlFile )
-      writeLines(translatedSql, sqlFile)
-    }
-    
-    ParallelLogger::logInfo("Running analysis")
-    sql <- SqlRender::render("DELETE FROM @results_database_schema.cc_results WHERE cc_generation_id = @generation_id", 
-                             results_database_schema = resultsSchema,  
-                             generation_id = jobId)
-    deleteSql <- SqlRender::translate(sql, dbms, tempSchema)
-    DatabaseConnector::executeSql(con, deleteSql)
-    
-    # null issue hack
-    #translatedSql <- gsub('null as value_as_number', 'count\\(*\\) as value_as_number',translatedSql)
-    #translatedSql <- gsub('P.START_DATE\\) \\) v', 'P.START_DATE\\) \\) v group by v.person_id, v.event_id',translatedSql)
-    DatabaseConnector::executeSql(con, translatedSql, runAsBatch = TRUE)
-    DatabaseConnector::disconnect(con)
-    
-    if(!is.null(customCovariates)){
-      # add custom covariate bit here...
-      customCovariates <- lapply(customCovariates, 
-                                 function(x){addSettings(x, 
-                                                         connectionDetails,
-                                                         resultsSchema,
-                                                         jobId,
-                                                         cohortTable,
-                                                         cdmDatabaseSchema
-                                                         )})
-      
-      lapply(customCovariates, 
-             function(x){do.call(x$funct, x$settings)})
-      
-    }
-    
-    ParallelLogger::logInfo("Collecting results")
-    saveResults(connectionDetails, cohortCharacterization, jobId, resultsSchema, outputFolder)
-  } else{
-    ParallelLogger::logInfo("Missing settings json")
+  if(viewShiny){
+    viewShinyChar(connectionDetails, jobId, resultsSchema)
   }
 
   invisible(NULL)
