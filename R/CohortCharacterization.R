@@ -20,7 +20,7 @@
 #' @param jobId analysis identifier
 #' @param outputFolder The location to save the results to
 #' @param customCovariates A list of lists with objects: function (a string) and settings and list of inputs to the function
-#' @param createCohort Whether to run the code to create the cohort
+#' @param createCohorts Whether to run the code to create the cohort
 #' @param runCharacterization Whether to run the code to charcterize the cohorts
 #' @param saveSql Whether to save the sql used into the outputFolder
 #' @param saveCvsResults Whether to save the results as csv files
@@ -94,7 +94,8 @@ runAnalysis <- function(connectionDetails,
     
     filename <- system.file("settings", "StudySpecification.json", package = "SkeletonCohortCharacterization")
     if(file.exists(filename)){
-      cohortCharacterization <- read_file(filename)
+      ##cohortCharacterization <- read_file(filename)  # testing line below
+      cohortCharacterization <- readChar(filename, file.info(filename)$size)
       
       ParallelLogger::logInfo("Building Cohort Characterization queries to run")
       

@@ -48,6 +48,8 @@ DatabaseConnector package.}
 
 \item{customCovariates}{A list of lists with objects: function (a string) and settings and list of inputs to the function}
 
+\item{createCohorts}{Whether to run the code to create the cohort}
+
 \item{runCharacterization}{Whether to run the code to charcterize the cohorts}
 
 \item{saveSql}{Whether to save the sql used into the outputFolder}
@@ -55,8 +57,6 @@ DatabaseConnector package.}
 \item{saveCvsResults}{Whether to save the results as csv files}
 
 \item{viewShiny}{Whether to view the results in a shiny app}
-
-\item{createCohort}{Whether to run the code to create the cohort}
 }
 \description{
 Builds query, run analyses and save results to the result folder.

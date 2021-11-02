@@ -34,14 +34,14 @@ shinydashboard::dashboardPage(
     shinydashboard::tabItems(
       shinydashboard::tabItem(
         tabName = "about",
-        br(),
-        p(
+        shiny::br(),
+        shiny::p(
           "This is an interactive viewer for exploring characteristic results."
         ),
-        h3("[ADD HEADER]"),
-        p(
+        shiny::h3("[ADD HEADER]"),
+        shiny::p(
           "[ADD TEXT]"
-        ),
+        )
         
       )
       ,

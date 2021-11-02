@@ -1,6 +1,7 @@
 viewShinyChar <- function(connectionDetails, jobId, resultsSchema){
   
   ensure_installed("DT")
+  ensure_installed("shiny")
   appDir <- system.file("shiny", "resultsExplorer", package = "SkeletonCohortCharacterization")
   shinySettings <- list(connectionDetails = connectionDetails, 
                         jobId = jobId, 

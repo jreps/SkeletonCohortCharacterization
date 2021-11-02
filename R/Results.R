@@ -78,7 +78,7 @@ buildReports <- function(analysis, cohorts, stratas, results, outputFolder) {
 
     fileName <- paste(analysisName, '_', cohort$name, '.csv', sep = '')
     ParallelLogger::logInfo(paste('Found ',rows,' rows', sep = ''))
-    write.csv(reportData, file.path(outputFolder, fileName), row.names = TRUE)
+    utils::write.csv(reportData, file.path(outputFolder, fileName), row.names = TRUE)
   }
 }
 
@@ -98,9 +98,9 @@ buildReports <- function(analysis, cohorts, stratas, results, outputFolder) {
 saveResults <- function(connectionDetails, cohortCharacterization, analysisId, 
                         resultsSchema, outputFolder, tresholdLevel = 0.01) {
 
-  library(jsonlite)
-  if (!file.exists(outputFolder))
+  if (!file.exists(outputFolder)){
     dir.create(outputFolder, recursive = TRUE)
+  }
 
   con <- DatabaseConnector::connect(connectionDetails)
 
@@ -116,11 +116,11 @@ saveResults <- function(connectionDetails, cohortCharacterization, analysisId,
 
   fileName <- file.path(outputFolder, "raw_data.csv")
   ParallelLogger::logInfo(paste("Raw data is available at ", fileName))
-  write.csv(results, fileName, row.names = TRUE)
+  utils::write.csv(results, fileName, row.names = TRUE)
 
   if (nrow(results) > 0) {
     results[which(results$STRATA_ID == 0), 'STRATA_NAME'] <- 'All stratas'
-    cc <- fromJSON(cohortCharacterization)
+    cc <- jsonlite::fromJSON(cohortCharacterization)
 
     analyses <- findAnalyses(results)
     cohorts <- findCohorts(cc, results)

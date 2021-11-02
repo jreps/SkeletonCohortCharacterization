@@ -47,43 +47,43 @@ timeBetweenDrugs <- function(connectionDetails,
   results <- DatabaseConnector::querySql(con, sql)
   DatabaseConnector::disconnect(con)
   
-  resultsAll <- results %>% dplyr::filter(!is.na(TIME_TO_NEXT)) %>%
+  resultsAll <- results %>% dplyr::filter(!is.na(.data$TIME_TO_NEXT)) %>%
     dplyr::summarise(type = "'DISTRIBUTION'",
                      fa_type = "'CUSTOM'",
-                     cc_generation_id = generationId,
+                     cc_generation_id = .data$generationId,
                      concept_id = 0,
                      analysis_id = 879,
                      analysis_name = "'Custom time to next drug'",
-                     count = length(TIME_TO_NEXT),
-                     avg_value = mean(TIME_TO_NEXT),
-                  stdev_value = sd(TIME_TO_NEXT),
-                  min_value = min(TIME_TO_NEXT),
-                  p10_value = quantile(TIME_TO_NEXT, 0.1),
-                  p25_value = quantile(TIME_TO_NEXT, 0.25),
-                  median_value = quantile(TIME_TO_NEXT, 0.5),
-                  p75_value = quantile(TIME_TO_NEXT, 0.75),
-                  p90_value = quantile(TIME_TO_NEXT, 0.90),
-                  max_value = max(TIME_TO_NEXT)
+                     count = length(.data$TIME_TO_NEXT),
+                     avg_value = mean(.data$TIME_TO_NEXT),
+                  stdev_value = stats::sd(.data$TIME_TO_NEXT),
+                  min_value = min(.data$TIME_TO_NEXT),
+                  p10_value = stats::quantile(.data$TIME_TO_NEXT, 0.1),
+                  p25_value = stats::quantile(.data$TIME_TO_NEXT, 0.25),
+                  median_value = stats::quantile(.data$TIME_TO_NEXT, 0.5),
+                  p75_value = stats::quantile(.data$TIME_TO_NEXT, 0.75),
+                  p90_value = stats::quantile(.data$TIME_TO_NEXT, 0.90),
+                  max_value = max(.data$TIME_TO_NEXT)
                   )
   
   
-  resultsSecond <- results %>% dplyr::filter(RN == 1 & !is.na(TIME_TO_NEXT)) %>%
+  resultsSecond <- results %>% dplyr::filter(.data$RN == 1 & !is.na(.data$TIME_TO_NEXT)) %>%
     dplyr::summarise(type = "'DISTRIBUTION'",
                      fa_type = "'CUSTOM'",
-                     cc_generation_id = generationId,
+                     cc_generation_id = .data$generationId,
                      concept_id = 0,
                      analysis_id = 880,
                      analysis_name = "'Custom time to second drug'",
-                     count_value = length(TIME_TO_NEXT),
-                     avg_value = mean(TIME_TO_NEXT),
-                     stdev_value = sd(TIME_TO_NEXT),
-                     min_value = min(TIME_TO_NEXT),
-                     p10_value = quantile(TIME_TO_NEXT, 0.1),
-                     p25_value = quantile(TIME_TO_NEXT, 0.25),
-                     median_value = quantile(TIME_TO_NEXT, 0.5),
-                     p75_value = quantile(TIME_TO_NEXT, 0.75),
-                     p90_value = quantile(TIME_TO_NEXT, 0.90),
-                     max_value = max(TIME_TO_NEXT)
+                     count_value = length(.data$TIME_TO_NEXT),
+                     avg_value = mean(.data$TIME_TO_NEXT),
+                     stdev_value = stats::sd(.data$TIME_TO_NEXT),
+                     min_value = min(.data$TIME_TO_NEXT),
+                     p10_value = stats::quantile(.data$TIME_TO_NEXT, 0.1),
+                     p25_value = stats::quantile(.data$TIME_TO_NEXT, 0.25),
+                     median_value = stats::quantile(.data$TIME_TO_NEXT, 0.5),
+                     p75_value = stats::quantile(.data$TIME_TO_NEXT, 0.75),
+                     p90_value = stats::quantile(.data$TIME_TO_NEXT, 0.90),
+                     max_value = max(.data$TIME_TO_NEXT)
     )
   
   # add these into resultsSchema.cc_results:
