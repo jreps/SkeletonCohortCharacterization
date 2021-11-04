@@ -28,6 +28,7 @@ connectionDetails <- .GlobalEnv$shinySettings$connectionDetails
 jobId <- .GlobalEnv$shinySettings$jobId
 resultsSchema <- .GlobalEnv$shinySettings$resultsSchema
 
+cohortDefs <- .GlobalEnv$cohorts
 
 ParallelLogger::logInfo('Connecting to database')
 con <- DatabaseConnector::connect(connectionDetails)
@@ -36,6 +37,15 @@ ParallelLogger::logInfo('Extracting results from database')
 allResults <- getResults(con = con, 
                          mySchema = resultsSchema, 
                          jobId = jobId)
+
+if(!is.null(cohortDefs)){
+  cnm <- colnames(allResults)
+  allResults <- merge(allResults, cohortDefs[,c('cohortId', 'name')], by.x = 'cohortDefinitionId', by.y = 'cohortId') 
+
+  allResults <- allResults[,c('name', cnm)]
+  colnames(allResults) <- c('cohortName', cnm)
+  allResults$cohortName <- as.factor(allResults$cohortName)
+}
 
 
 onStop(function() {

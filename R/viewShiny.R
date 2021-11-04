@@ -7,7 +7,13 @@ viewShinyChar <- function(connectionDetails, jobId, resultsSchema){
                         jobId = jobId, 
                         resultsSchema = resultsSchema)
   .GlobalEnv$shinySettings <- shinySettings
-  on.exit(rm(shinySettings, envir = .GlobalEnv))
+  # get cohorts - CohortsToCreate
+  cohortLoc <- system.file("settings", "CohortsToCreate.csv", package = "SkeletonCohortCharacterization")
+  if(cohortLoc != ''){
+    cohorts <- read.csv(cohortLoc) 
+    .GlobalEnv$cohorts <- cohorts
+  }
+  on.exit(rm('shinySettings','cohorts', envir = .GlobalEnv))
   shiny::runApp(appDir)
 }
 

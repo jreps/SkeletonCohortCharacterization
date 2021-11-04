@@ -40,8 +40,8 @@ buildQuery <- function(cohortCharacterization,
                         jobId
 ) {
 
-  id <- .jlong(jobId)
-  queryBuilder <- methods::new(rJava::J("org.ohdsi.cohortcharacterization.CCQueryBuilder"), cohortCharacterization, cohortTable, sessionId, cdmSchema, resultsSchema, vocabularySchema, tempSchema, id)
+  id <- rJava::.jlong(jobId)
+  queryBuilder <- rJava::new(rJava::J("org.ohdsi.cohortcharacterization.CCQueryBuilder"), cohortCharacterization, cohortTable, sessionId, cdmSchema, resultsSchema, vocabularySchema, tempSchema, id)
   sql <- queryBuilder$build()
   return(sql)
 }
